@@ -1,0 +1,12 @@
+body {
+  background-color: #1f1e1e;
+}
+
+.signup-card {
+  width: 350px;
+  border-radius: 10px;
+}
+
+.btn {
+  border-radius: 25px;
+}
