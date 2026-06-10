@@ -7,15 +7,27 @@ import {
   ListGroup,
   Spinner,
 } from "react-bootstrap";
-import ComposeMail from "./ComposeMail";
-import { auth } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { ref, update } from "firebase/database";
+import { useDispatch, useSelector } from "react-redux";
+
+import ComposeMail from "./ComposeMail";
+import Sent from "./Sent";
+import { auth, database } from "../firebase";
+import { setMails, markAsRead } from "../store/mailSlice";
+
 import "../styles/Inbox.css";
+import { signOut } from "firebase/auth";
 
 function Inbox() {
   const [showCompose, setShowCompose] = useState(false);
-  const [mails, setMails] = useState([]);
+  const [showSent, setShowSent] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selectedMail, setSelectedMail] = useState(null);
+
+  const dispatch = useDispatch();
+
+  const mails = useSelector((state) => state.mail.mails);
 
   const fetchMails = async (currentUser) => {
     try {
@@ -36,9 +48,25 @@ function Inbox() {
         }
       }
 
-      setMails(loadedMails);
+      dispatch(setMails(loadedMails));
     } catch (error) {
       console.log(error);
+    }
+  };
+
+  const openMail = async (mail) => {
+    setSelectedMail(mail);
+
+    if (!mail.read) {
+      try {
+        await update(ref(database, `mails/${mail.id}`), {
+          read: true,
+        });
+
+        dispatch(markAsRead(mail.id));
+      } catch (error) {
+        console.log(error);
+      }
     }
   };
 
@@ -66,23 +94,53 @@ function Inbox() {
     return <ComposeMail onBack={() => setShowCompose(false)} />;
   }
 
+  if (showSent) {
+    return <Sent onBack={() => setShowSent(false)} />;
+  }
+
+  const unreadCount = mails.filter((mail) => !mail.read).length;
+
   return (
     <Container fluid className="mt-3">
       <Row>
         <Col md={2}>
           <Button
             className="w-100 mb-3"
-            onClick={() => setShowCompose(true)}
+            onClick={() => {
+              setShowCompose(true);
+              setShowSent(false);
+            }}
           >
             Compose
           </Button>
 
+          <Button
+  variant="danger"
+  className="w-100 mb-3"
+  onClick={() => signOut(auth)}
+>
+  Logout
+</Button>
+
           <ListGroup>
-            <ListGroup.Item active>
-              Inbox
+            <ListGroup.Item
+              active={!showSent}
+              style={{ cursor: "pointer" }}
+              onClick={() => {
+                setShowCompose(false);
+                setShowSent(false);
+              }}
+            >
+              Inbox ({unreadCount})
             </ListGroup.Item>
 
-            <ListGroup.Item>
+            <ListGroup.Item
+              style={{ cursor: "pointer" }}
+              onClick={() => {
+                setShowCompose(false);
+                setShowSent(true);
+              }}
+            >
               Sent
             </ListGroup.Item>
           </ListGroup>
@@ -93,17 +151,45 @@ function Inbox() {
 
           <ListGroup>
             {mails.length === 0 ? (
-              <ListGroup.Item>
-                No mails available
-              </ListGroup.Item>
+              <ListGroup.Item>No mails available</ListGroup.Item>
             ) : (
               mails.map((mail) => (
-                <ListGroup.Item key={mail.id}>
+                <ListGroup.Item
+                  key={mail.id}
+                  onClick={() => openMail(mail)}
+                  style={{ cursor: "pointer" }}
+                >
+                  {!mail.read && <span className="blue-dot"></span>}
+
                   <strong>{mail.subject}</strong>
                 </ListGroup.Item>
               ))
             )}
           </ListGroup>
+
+          {selectedMail && (
+            <div className="mt-4 border rounded p-3">
+              <h4>{selectedMail.subject}</h4>
+
+              <p>
+                <strong>From:</strong> {selectedMail.from}
+              </p>
+
+              <p>
+                <strong>To:</strong> {selectedMail.to}
+              </p>
+
+              <hr />
+
+              <p style={{ whiteSpace: "pre-wrap" }}>
+                {selectedMail.content
+                  ? JSON.parse(selectedMail.content)
+                      .blocks.map((block) => block.text)
+                      .join("\n")
+                  : ""}
+              </p>
+            </div>
+          )}
         </Col>
       </Row>
     </Container>

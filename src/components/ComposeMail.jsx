@@ -38,6 +38,7 @@ function ComposeMail({ onBack }) {
       subject: subject,
       content: content,
       createdAt: new Date().toISOString(),
+      read: false,
     };
 
     push(ref(database, "mails"), mailData)
