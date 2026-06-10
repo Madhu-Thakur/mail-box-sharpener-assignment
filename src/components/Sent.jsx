@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import { Container, ListGroup, Button } from "react-bootstrap";
-import { auth, database } from "../firebase";
-import { ref, remove } from "firebase/database";
+import { auth } from "../firebase";
+import useMailApi from "../hooks/useMailApi";
 import { onAuthStateChanged } from "firebase/auth";
 import { useDispatch, useSelector } from "react-redux";
 import { setSentMails, deleteSentMail } from "../store/mailSlice";
 
 function Sent({ onBack }) {
   const dispatch = useDispatch();
+
+  const { getMails, deleteMail: deleteMailApi } = useMailApi();
 
   const mails = useSelector((state) => state.mail.sentMails);
   const [selectedMail, setSelectedMail] = useState(null);
@@ -20,7 +22,7 @@ function Sent({ onBack }) {
           "https://netflixgpt-d9389-default-rtdb.firebaseio.com/mails.json",
         );
 
-        const data = await response.json();
+        const data = await getMails();
 
         const loadedMails = [];
 
@@ -56,7 +58,7 @@ function Sent({ onBack }) {
 
   const deleteMail = async (id) => {
     try {
-      await remove(ref(database, `mails/${id}`));
+      await deleteMailApi(id);
 
       dispatch(deleteSentMail(id));
 
@@ -82,11 +84,7 @@ function Sent({ onBack }) {
     <Container className="mt-3">
       <div className="d-flex align-items-center mb-3">
         {onBack && (
-          <Button
-            variant="outline-secondary"
-            className="me-2"
-            onClick={onBack}
-          >
+          <Button variant="outline-secondary" className="me-2" onClick={onBack}>
             ← Back
           </Button>
         )}

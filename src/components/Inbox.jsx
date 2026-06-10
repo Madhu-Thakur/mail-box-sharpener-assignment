@@ -7,17 +7,18 @@ import {
   ListGroup,
   Spinner,
 } from "react-bootstrap";
-import { onAuthStateChanged } from "firebase/auth";
-import { ref, update, remove } from "firebase/database";
 import { useDispatch, useSelector } from "react-redux";
-
 import ComposeMail from "./ComposeMail";
 import Sent from "./Sent";
-import { auth, database } from "../firebase";
-import { setInboxMails, markAsRead, deleteInboxMail } from "../store/mailSlice";
-
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "../firebase";
+import useMailApi from "../hooks/useMailApi";
+import {
+  setInboxMails,
+  markAsRead,
+  deleteInboxMail,
+} from "../store/mailSlice";
 import "../styles/Inbox.css";
-import { signOut } from "firebase/auth";
 
 function Inbox() {
   const [showCompose, setShowCompose] = useState(false);
@@ -29,63 +30,63 @@ function Inbox() {
 
   const mails = useSelector((state) => state.mail.inboxMails);
 
-  const openMail = async (mail) => {
-    setSelectedMail(mail);
+  const {
+  getMails,
+  deleteMail: deleteMailApi,
+  markMailAsRead,
+} = useMailApi();
 
-    if (!mail.read) {
-      try {
-        await update(ref(database, `mails/${mail.id}`), {
-          read: true,
-        });
+ const openMail = async (mail) => {
+  setSelectedMail(mail);
 
-        dispatch(markAsRead(mail.id));
-      } catch (error) {
-        console.log(error);
-      }
-    }
-  };
-
-  const deleteMail = async (id) => {
+  if (!mail.read) {
     try {
-      await remove(ref(database, `mails/${id}`));
+      await markMailAsRead(mail.id);
 
-      dispatch(deleteInboxMail(id));
-
-      if (selectedMail && selectedMail.id === id) {
-        setSelectedMail(null);
-      }
+      dispatch(markAsRead(mail.id));
     } catch (error) {
       console.log(error);
     }
-  };
+  }
+};
+
+const deleteMail = async (id) => {
+  try {
+    await deleteMailApi(id);
+
+    dispatch(deleteInboxMail(id));
+
+    if (selectedMail && selectedMail.id === id) {
+      setSelectedMail(null);
+    }
+  } catch (error) {
+    console.log(error);
+  }
+};
 
   useEffect(() => {
     let interval;
 
-    const fetchMails = async (currentUser) => {
-      try {
-        const response = await fetch(
-          "https://netflixgpt-d9389-default-rtdb.firebaseio.com/mails.json",
-        );
+   const fetchMails = async (currentUser) => {
+  try {
+    const data = await getMails();
 
-        const data = await response.json();
+    const loadedMails = [];
 
-        const loadedMails = [];
-
-        for (const key in data) {
-          if (data[key].to === currentUser.email) {
-            loadedMails.push({
-              id: key,
-              ...data[key],
-            });
-          }
-        }
-
-        dispatch(setInboxMails(loadedMails));
-      } catch (error) {
-        console.log(error);
+    for (const key in data) {
+      if (data[key].to === currentUser.email) {
+        loadedMails.push({
+          id: key,
+          ...data[key],
+        });
       }
-    };
+    }
+
+    dispatch(setInboxMails(loadedMails));
+  } catch (error) {
+    console.log(error);
+  }
+};
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setLoading(false);

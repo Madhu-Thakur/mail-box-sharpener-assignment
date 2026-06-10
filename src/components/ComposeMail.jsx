@@ -6,8 +6,8 @@ import {
   convertToRaw,
 } from "draft-js";
 
-import { database, auth } from "../firebase";
-import { ref, push } from "firebase/database";
+import { auth } from "../firebase";
+import useMailApi from "../hooks/useMailApi";
 
 import "react-draft-wysiwyg/dist/react-draft-wysiwyg.css";
 import "draft-js/dist/Draft.css";
@@ -20,7 +20,9 @@ function ComposeMail({ onBack }) {
     EditorState.createEmpty()
   );
 
-  const handleSend = () => {
+  const { addMail } = useMailApi();
+
+  const handleSend = async () => {
     const user = auth.currentUser;
 
     if (!user) {
@@ -41,17 +43,17 @@ function ComposeMail({ onBack }) {
       read: false,
     };
 
-    push(ref(database, "mails"), mailData)
-      .then(() => {
-        alert("Mail Sent Successfully");
+    try {
+      await addMail(mailData);
 
-        setTo("");
-        setSubject("");
-        setEditorState(EditorState.createEmpty());
-      })
-      .catch((error) => {
-        alert(error.message);
-      });
+      alert("Mail Sent Successfully");
+
+      setTo("");
+      setSubject("");
+      setEditorState(EditorState.createEmpty());
+    } catch (error) {
+      alert(error.message);
+    }
   };
 
   return (
@@ -64,6 +66,7 @@ function ComposeMail({ onBack }) {
         >
           ← Back
         </Button>
+
         <h4 className="mb-0">New Message</h4>
       </div>
 
