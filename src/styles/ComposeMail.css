@@ -1,0 +1,9 @@
+.editor-wrapper {
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+}
+
+.editor {
+  min-height: 300px;
+  padding: 10px;
+}
