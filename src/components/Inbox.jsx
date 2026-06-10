@@ -60,6 +60,8 @@ function Inbox() {
   };
 
   useEffect(() => {
+    let interval;
+
     const fetchMails = async (currentUser) => {
       try {
         const response = await fetch(
@@ -89,11 +91,23 @@ function Inbox() {
       setLoading(false);
 
       if (currentUser) {
+        // Initial fetch
         fetchMails(currentUser);
+
+        // Fetch every 2 seconds
+        interval = setInterval(() => {
+          fetchMails(currentUser);
+        }, 2000);
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
   }, [dispatch]);
 
   if (loading) {
