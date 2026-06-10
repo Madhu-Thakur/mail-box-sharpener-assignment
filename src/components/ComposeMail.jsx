@@ -10,9 +10,10 @@ import { database, auth } from "../firebase";
 import { ref, push } from "firebase/database";
 
 import "react-draft-wysiwyg/dist/react-draft-wysiwyg.css";
+import "draft-js/dist/Draft.css";
 import "../styles/ComposeMail.css";
 
-function ComposeMail() {
+function ComposeMail({ onBack }) {
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [editorState, setEditorState] = useState(
@@ -54,6 +55,17 @@ function ComposeMail() {
 
   return (
     <Container className="mt-4">
+      <div className="d-flex align-items-center mb-3">
+        <Button
+          variant="outline-secondary"
+          className="me-2"
+          onClick={onBack}
+        >
+          ← Back
+        </Button>
+        <h4 className="mb-0">New Message</h4>
+      </div>
+
       <Form.Control
         type="email"
         placeholder="To"

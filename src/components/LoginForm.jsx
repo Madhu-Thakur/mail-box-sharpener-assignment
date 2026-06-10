@@ -20,9 +20,6 @@ function LoginForm({ onToggle }) {
         email,
         password
       );
-
-      localStorage.setItem("isLoggedIn", "true");
-      window.location.reload();
     } catch (err) {
       setError(err.message);
     }

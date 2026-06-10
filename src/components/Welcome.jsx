@@ -1,15 +1,7 @@
-import ComposeMail from "./ComposeMail";
+import Inbox from "./Inbox";
 
 function Welcome() {
-  return (
-    <div>
-      <h3>Welcome to Expense Tracker!!!</h3>
-
-      <hr />
-
-      <ComposeMail />
-    </div>
-  );
+  return <Inbox />;
 }
 
 export default Welcome;
