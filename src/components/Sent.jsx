@@ -1,47 +1,97 @@
 import { useState, useEffect } from "react";
-import { Container, ListGroup } from "react-bootstrap";
-import { auth } from "../firebase";
+import { Container, ListGroup, Button } from "react-bootstrap";
+import { auth, database } from "../firebase";
+import { ref, remove } from "firebase/database";
+import { onAuthStateChanged } from "firebase/auth";
+import { useDispatch, useSelector } from "react-redux";
+import { setSentMails, deleteSentMail } from "../store/mailSlice";
 
-function Sent() {
-  const [mails, setMails] = useState([]);
+function Sent({ onBack }) {
+  const dispatch = useDispatch();
+
+  const mails = useSelector((state) => state.mail.sentMails);
   const [selectedMail, setSelectedMail] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchSentMails();
-  }, []);
+    const fetchSentMails = async (currentUser) => {
+      try {
+        const response = await fetch(
+          "https://netflixgpt-d9389-default-rtdb.firebaseio.com/mails.json",
+        );
 
-  const fetchSentMails = async () => {
-    try {
-      const response = await fetch(
-        "https://netflixgpt-d9389-default-rtdb.firebaseio.com/mails.json"
-      );
+        const data = await response.json();
 
-      const data = await response.json();
+        const loadedMails = [];
 
-      const loadedMails = [];
-
-      for (const key in data) {
-        if (data[key].from === auth.currentUser.email) {
-          loadedMails.push({
-            id: key,
-            ...data[key],
-          });
+        for (const key in data) {
+          if (data[key].from === currentUser.email) {
+            loadedMails.push({
+              id: key,
+              ...data[key],
+            });
+          }
         }
-      }
 
-      setMails(loadedMails);
-    } catch (error) {
-      console.log(error);
-    }
-  };
+        dispatch(setSentMails(loadedMails));
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setLoading(false);
+
+      if (currentUser) {
+        fetchSentMails(currentUser);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [dispatch]);
 
   const openMail = (mail) => {
     setSelectedMail(mail);
   };
 
+  const deleteMail = async (id) => {
+    try {
+      await remove(ref(database, `mails/${id}`));
+
+      dispatch(deleteSentMail(id));
+
+      if (selectedMail && selectedMail.id === id) {
+        setSelectedMail(null);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Container className="d-flex justify-content-center align-items-center vh-100">
+        <div className="spinner-border" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </div>
+      </Container>
+    );
+  }
+
   return (
     <Container className="mt-3">
-      <h3>Sent Mails</h3>
+      <div className="d-flex align-items-center mb-3">
+        {onBack && (
+          <Button
+            variant="outline-secondary"
+            className="me-2"
+            onClick={onBack}
+          >
+            ← Back
+          </Button>
+        )}
+        <h3 className="mb-0">Sent Mails</h3>
+      </div>
 
       <ListGroup className="mt-3">
         {mails.length === 0 ? (
@@ -50,10 +100,22 @@ function Sent() {
           mails.map((mail) => (
             <ListGroup.Item
               key={mail.id}
-              onClick={() => openMail(mail)}
-              style={{ cursor: "pointer" }}
+              className="d-flex justify-content-between align-items-center"
             >
-              <strong>{mail.subject}</strong>
+              <div
+                onClick={() => openMail(mail)}
+                style={{ cursor: "pointer", flex: 1 }}
+              >
+                <strong>{mail.subject}</strong>
+              </div>
+
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => deleteMail(mail.id)}
+              >
+                Delete
+              </Button>
             </ListGroup.Item>
           ))
         )}
@@ -71,8 +133,8 @@ function Sent() {
 
           <p style={{ whiteSpace: "pre-wrap" }}>
             {selectedMail.content
-              ? JSON.parse(selectedMail.content).blocks
-                  .map((block) => block.text)
+              ? JSON.parse(selectedMail.content)
+                  .blocks.map((block) => block.text)
                   .join("\n")
               : ""}
           </p>

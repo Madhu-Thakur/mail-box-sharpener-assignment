@@ -8,13 +8,13 @@ import {
   Spinner,
 } from "react-bootstrap";
 import { onAuthStateChanged } from "firebase/auth";
-import { ref, update } from "firebase/database";
+import { ref, update, remove } from "firebase/database";
 import { useDispatch, useSelector } from "react-redux";
 
 import ComposeMail from "./ComposeMail";
 import Sent from "./Sent";
 import { auth, database } from "../firebase";
-import { setMails, markAsRead } from "../store/mailSlice";
+import { setInboxMails, markAsRead, deleteInboxMail } from "../store/mailSlice";
 
 import "../styles/Inbox.css";
 import { signOut } from "firebase/auth";
@@ -27,32 +27,7 @@ function Inbox() {
 
   const dispatch = useDispatch();
 
-  const mails = useSelector((state) => state.mail.mails);
-
-  const fetchMails = async (currentUser) => {
-    try {
-      const response = await fetch(
-        "https://netflixgpt-d9389-default-rtdb.firebaseio.com/mails.json"
-      );
-
-      const data = await response.json();
-
-      const loadedMails = [];
-
-      for (const key in data) {
-        if (data[key].to === currentUser.email) {
-          loadedMails.push({
-            id: key,
-            ...data[key],
-          });
-        }
-      }
-
-      dispatch(setMails(loadedMails));
-    } catch (error) {
-      console.log(error);
-    }
-  };
+  const mails = useSelector((state) => state.mail.inboxMails);
 
   const openMail = async (mail) => {
     setSelectedMail(mail);
@@ -70,7 +45,46 @@ function Inbox() {
     }
   };
 
+  const deleteMail = async (id) => {
+    try {
+      await remove(ref(database, `mails/${id}`));
+
+      dispatch(deleteInboxMail(id));
+
+      if (selectedMail && selectedMail.id === id) {
+        setSelectedMail(null);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   useEffect(() => {
+    const fetchMails = async (currentUser) => {
+      try {
+        const response = await fetch(
+          "https://netflixgpt-d9389-default-rtdb.firebaseio.com/mails.json",
+        );
+
+        const data = await response.json();
+
+        const loadedMails = [];
+
+        for (const key in data) {
+          if (data[key].to === currentUser.email) {
+            loadedMails.push({
+              id: key,
+              ...data[key],
+            });
+          }
+        }
+
+        dispatch(setInboxMails(loadedMails));
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setLoading(false);
 
@@ -80,7 +94,7 @@ function Inbox() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [dispatch]);
 
   if (loading) {
     return (
@@ -115,12 +129,12 @@ function Inbox() {
           </Button>
 
           <Button
-  variant="danger"
-  className="w-100 mb-3"
-  onClick={() => signOut(auth)}
->
-  Logout
-</Button>
+            variant="danger"
+            className="w-100 mb-3"
+            onClick={() => signOut(auth)}
+          >
+            Logout
+          </Button>
 
           <ListGroup>
             <ListGroup.Item
@@ -156,12 +170,23 @@ function Inbox() {
               mails.map((mail) => (
                 <ListGroup.Item
                   key={mail.id}
-                  onClick={() => openMail(mail)}
-                  style={{ cursor: "pointer" }}
+                  className="d-flex justify-content-between align-items-center"
                 >
-                  {!mail.read && <span className="blue-dot"></span>}
+                  <div
+                    onClick={() => openMail(mail)}
+                    style={{ cursor: "pointer", flex: 1 }}
+                  >
+                    {!mail.read && <span className="blue-dot"></span>}
+                    <strong>{mail.subject}</strong>
+                  </div>
 
-                  <strong>{mail.subject}</strong>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => deleteMail(mail.id)}
+                  >
+                    Delete
+                  </Button>
                 </ListGroup.Item>
               ))
             )}
